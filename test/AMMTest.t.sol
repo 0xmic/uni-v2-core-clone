@@ -29,4 +29,15 @@ contract BondingCurveTokenTest is StdCheats, Test {
         console2.log("AMM Address", address(amm));
         assertFalse(address(amm) == address(0));
     }
+
+    // function test_AddLiquidity()
+
+    // function test_RemoveLiquidity()
+
+    // function test_Swap()
+
+    // function test_FlashSwap()
+
+    // function test_TWAP()
+
 }
