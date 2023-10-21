@@ -32,7 +32,7 @@ contract DeployAMM is Script {
         vm.startBroadcast(deployerKey);
         token1 = new Token(INITIAL_SUPPLY, TOKEN1_NAME, TOKEN1_SYMBOL);
         token2 = new Token(INITIAL_SUPPLY, TOKEN2_NAME, TOKEN2_SYMBOL);
-        amm = new AMM(token1, token2);
+        amm = new AMM(address(token1), address(token2));
         vm.stopBroadcast();
 
         return (token1, token2, amm);

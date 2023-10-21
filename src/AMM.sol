@@ -1,5 +1,4 @@
 /**
- * TODO: Implement OpenZeppelin safeTransfer with SafeERC20
  * TODO: Implement last recorded balance of token1 and token2 to calculate the TWAP and prevent oracle manipulation 
  * TODO: Implement flash swaps with EIP 3156
  * TODO: Implement fixed point math for more precise calculations
@@ -7,18 +6,21 @@
 //SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.21;
 
-import './Token.sol';
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title AMM (Automated Market Maker)
  * @dev This contract implements an AMM with two Token assets for liquidity providing and swapping.
  */ 
 contract AMM {
+    using SafeERC20 for IERC20;
+
     /**
      * @dev Public state variables
      */
-    Token public token1;
-    Token public token2;
+    IERC20 public token1;
+    IERC20 public token2;
 
     uint256 public token1Balance;
     uint256 public token2Balance;
@@ -44,12 +46,12 @@ contract AMM {
 
     /**
      * @dev Initializes the tokens for the AMM
-     * @param _token1 The first token for the AMM
-     * @param _token2 The second token for the AMM
+     * @param _token1Address Address of the first token
+     * @param _token2Address Address of the second token
      */
-    constructor(Token _token1, Token _token2) {
-        token1 = _token1;
-        token2 = _token2;
+    constructor(address _token1Address, address _token2Address) {
+        token1 = IERC20(_token1Address);
+        token2 = IERC20(_token2Address);
     }
 
     /**
@@ -58,9 +60,8 @@ contract AMM {
      * @param _token2Amount Amount of the second token to add
      */
     function addLiquidity(uint256 _token1Amount, uint256 _token2Amount) external {
-        // Deposit Tokens
-        require(token1.transferFrom(msg.sender, address(this), _token1Amount), 'Failed to transfer token1');
-        require(token2.transferFrom(msg.sender, address(this), _token2Amount), 'Failed to transfer token2');
+        token1.transferFrom(msg.sender, address(this), _token1Amount);
+        token2.transferFrom(msg.sender, address(this), _token2Amount);
 
         // Issue Shares
         uint256 share;
@@ -142,10 +143,10 @@ contract AMM {
         token2Amount = calculateToken1Swap(_token1Amount);
 
         // Do Swap
-        token1.transferFrom(msg.sender, address(this), _token1Amount);
+        token1.safeTransferFrom(msg.sender, address(this), _token1Amount);
         token1Balance += _token1Amount;
         token2Balance -= token2Amount;
-        token2.transfer(msg.sender, token2Amount);
+        token2.safeTransfer(msg.sender, token2Amount);
 
         // Emit an event
         emit Swap(
@@ -193,10 +194,10 @@ contract AMM {
         token1Amount = calculateToken2Swap(_token2Amount);
 
         // Do Swap
-        token2.transferFrom(msg.sender, address(this), _token2Amount);
+        token2.safeTransferFrom(msg.sender, address(this), _token2Amount);
         token2Balance += _token2Amount;
         token1Balance -= token1Amount;
-        token1.transfer(msg.sender, token1Amount);
+        token1.safeTransfer(msg.sender, token1Amount);
 
         // Emit an event
         emit Swap(
@@ -244,7 +245,7 @@ contract AMM {
         token2Balance -= token2Amount;
         K = token1Balance * token2Balance;
 
-        token1.transfer(msg.sender, token1Amount);
-        token2.transfer(msg.sender, token2Amount);
+        token1.safeTransfer(msg.sender, token1Amount);
+        token2.safeTransfer(msg.sender, token2Amount);
     }
 }
