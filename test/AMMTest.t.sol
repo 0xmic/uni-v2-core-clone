@@ -30,6 +30,16 @@ contract BondingCurveTokenTest is StdCheats, Test {
         assertFalse(address(amm) == address(0));
     }
 
+    function test_token1Address() public {
+        console2.log("Token1 Address", address(token1));
+        assertEq(address(amm.token1()), address(token1));
+    }
+
+    function test_token2Address() public {
+        console2.log("Token2 Address", address(token2));
+        assertEq(address(amm.token2()), address(token2));
+    }
+
     // function test_AddLiquidity()
 
     // function test_RemoveLiquidity()

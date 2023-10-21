@@ -1,3 +1,9 @@
+/**
+ * TODO: Implement OpenZeppelin safeTransfer with SafeERC20
+ * TODO: Implement last recorded balance of token1 and token2 to calculate the TWAP and prevent oracle manipulation 
+ * TODO: Implement flash swaps with EIP 3156
+ * TODO: Implement fixed point math for more precise calculations
+ */
 //SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.21;
 
@@ -6,7 +12,7 @@ import './Token.sol';
 /**
  * @title AMM (Automated Market Maker)
  * @dev This contract implements an AMM with two Token assets for liquidity providing and swapping.
- */
+ */ 
 contract AMM {
     /**
      * @dev Public state variables
