@@ -5,6 +5,7 @@ import {Test, console2} from "forge-std/Test.sol";
 import {StdCheats, console2} from "forge-std/StdCheats.sol";
 import {Token} from "../src/Token.sol";
 import {AMM} from "../src/AMM.sol";
+import {FlashBorrower} from "../src/FlashBorrower.sol";
 import {DeployAMM} from "../script/DeployAMM.s.sol";
 
 contract BondingCurveTokenTest is StdCheats, Test {
@@ -255,7 +256,30 @@ contract BondingCurveTokenTest is StdCheats, Test {
     function test_FlashSwap() public {
         test_AddLiquidity();
 
-        // TODO: Implement flash swap test
+        // Investor1 deploys FlashBorrower contract
+        vm.prank(investor1);
+        FlashBorrower flashBorrower = new FlashBorrower(amm);
+
+        // Deployer transfers tokens to flash borrower to pay back flash fee
+        vm.prank(deployerAddress);
+        token1.transfer(address(flashBorrower), 1_000 ether);
+
+        // Check token balances before flash loan
+        console2.log("Token1 balance before flash loan: ", token1.balanceOf(address(flashBorrower)));
+        assertEq(token1.balanceOf(address(flashBorrower)), 1_000 ether);
+
+        // AMM approves tokens for flash loan (or not needed depending on your setup)
+        vm.prank(address(amm));
+        token1.approve(address(flashBorrower), 1_000 ether);
+
+        // Investor1 executes the flash loan
+        bytes memory data;  // You can put any necessary data here
+        vm.prank(investor1);
+        flashBorrower.executeFlashLoan(address(token1), 1_000 ether, data);
+
+        // Check token balances after flash loan
+        console2.log("Token1 balance after flash loan: ", token1.balanceOf(address(flashBorrower)));
+        assertEq(token1.balanceOf(address(flashBorrower)), 995 ether);
     }
 
     // function test_TWAP()

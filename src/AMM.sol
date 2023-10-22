@@ -1,19 +1,16 @@
-/**
- * TODO: Implement fixed point math for more precise calculations
- * TODO: Implement last recorded balance of token1 and token2 to calculate the TWAP and prevent oracle manipulation 
- * TODO: Implement flash swaps with EIP 3156
- */
 //SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.21;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC3156FlashLender} from "@openzeppelin/contracts/interfaces/IERC3156FlashLender.sol";
+import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 
 /**
  * @title AMM (Automated Market Maker)
  * @dev This contract implements an AMM with two Token assets for liquidity providing and swapping.
  */ 
-contract AMM {
+contract AMM is IERC3156FlashLender {
     using SafeERC20 for IERC20;
 
     /**
@@ -26,9 +23,11 @@ contract AMM {
     uint256 public token2Balance;
     uint256 public K;
 
-    uint256 public totalShares;
     mapping(address => uint256) public shares;
+    uint256 public totalShares;
     uint256 public constant PRECISION = 10 ** 18;
+
+    uint256 public feeRate = 50; // 50 basis points = 0.5% fee
 
     /**
      * @dev Event emitted when a token swap happens
@@ -72,7 +71,7 @@ contract AMM {
         } else {
             uint256 share1 = (_token1Amount * totalShares) / token1Balance;
             uint256 share2 = (_token2Amount * totalShares) / token2Balance;
-            require((share1 / 10**3) == (share2 / 10**3), 'Must provide equal share amounts');
+            require((share1 / 10**3) == (share2 / 10**3), "Must provide equal share amounts");
             share = share1;
         }
 
@@ -92,10 +91,7 @@ contract AMM {
      * @return token1Amount Amount of the first token received
      * @return token2Amount Amount of the second token received
      */
-    function removeLiquidity(uint256 _share)
-        external
-        returns(uint256 token1Amount, uint256 token2Amount)
-    {
+    function removeLiquidity(uint256 _share) external returns(uint256 token1Amount, uint256 token2Amount) {
         require(_share <= shares[msg.sender], "Must be less than or equal to your shares");
 
         (token1Amount, token2Amount) = calculateWithdrawAmount(_share);
@@ -115,11 +111,7 @@ contract AMM {
      * @dev Calculates how much of token2 an LP needs to deposit for a specific amount of token1
      * @param _token1Amount Amount of the first token for the calculation
      */
-    function calculateToken2Deposit(uint256 _token1Amount)
-        public
-        view
-        returns(uint256 _token2Amount)
-    {
+    function calculateToken2Deposit(uint256 _token1Amount) public view returns(uint256 _token2Amount) {
         _token2Amount = (token2Balance * _token1Amount) / token1Balance;
     }
 
@@ -127,11 +119,7 @@ contract AMM {
      * @dev Calculates how much of token1 an LP needs to deposit for a specific amount of token2
      * @param _token2Amount Amount of the second token for the calculation
      */
-    function calculateToken1Deposit(uint256 _token2Amount)
-        public
-        view
-        returns(uint256 _token1Amount)
-    {
+    function calculateToken1Deposit(uint256 _token2Amount) public view returns(uint256 _token1Amount) {
         _token1Amount = (token1Balance * _token2Amount) / token2Balance;
     }
 
@@ -139,11 +127,7 @@ contract AMM {
      * @dev Calculates how much of token2 is received when swapping token1
      * @param _token1Amount Amount of the first token to swap
      */
-    function calculateToken1Swap(uint256 _token1Amount)
-        public
-        view
-        returns (uint256 token2Amount)
-    {
+    function calculateToken1Swap(uint256 _token1Amount) public view returns (uint256 token2Amount) {
         uint256 token1After = token1Balance + _token1Amount;
         uint256 token2After = K / token1After;
         token2Amount = token2Balance - token2After;
@@ -153,17 +137,14 @@ contract AMM {
             token2Amount --;
         }
 
-        require(token2Amount < token2Balance, 'Swap cannot exceed pool balance');
+        require(token2Amount < token2Balance, "Swap cannot exceed pool balance");
     }
 
     /**
      * @dev This function allows users to swap token1 for token2
      * @param _token1Amount Amount of the first token to swap
      */
-    function swapToken1(uint256 _token1Amount)
-        external
-        returns(uint256 token2Amount)
-    {
+    function swapToken1(uint256 _token1Amount) external returns(uint256 token2Amount) {
         // Calculate Token 2 Amount
         token2Amount = calculateToken1Swap(_token1Amount);
 
@@ -190,11 +171,7 @@ contract AMM {
      * @dev This function calculates how much of token1 is received when swapping token2
      * @param _token2Amount Amount of the second token to swap
      */
-    function calculateToken2Swap(uint256 _token2Amount)
-        public
-        view
-        returns (uint256 token1Amount)
-    {
+    function calculateToken2Swap(uint256 _token2Amount) public view returns (uint256 token1Amount) {
         uint256 token2After = token2Balance + _token2Amount;
         uint256 token1After = K / token2After;
         token1Amount = token1Balance - token1After;
@@ -204,17 +181,14 @@ contract AMM {
             token1Amount --;
         }
 
-        require(token1Amount < token1Balance, 'Swap cannot exceed pool balance');
+        require(token1Amount < token1Balance, "Swap cannot exceed pool balance");
     }
 
     /**
      * @dev This function allows users to swap token2 for token1
      * @param _token2Amount Amount of the second token to swap
      */
-    function swapToken2(uint256 _token2Amount)
-        external
-        returns(uint256 token1Amount)
-    {
+    function swapToken2(uint256 _token2Amount) external returns (uint256 token1Amount) {
         // Calculate Token 1 Amount
         token1Amount = calculateToken2Swap(_token2Amount);
 
@@ -242,12 +216,80 @@ contract AMM {
      * @param _share Amount of liquidity shares to calculate the withdrawal for
      */
     function calculateWithdrawAmount(uint256 _share)
-        public
-        view
-        returns(uint256 token1Amount, uint256 token2Amount)
+        public view returns (uint256 token1Amount, uint256 token2Amount)
     {
         require(_share < totalShares, "Must be less than total shares");
         token1Amount = (_share * token1Balance) / totalShares;
         token2Amount = (_share * token2Balance) / totalShares;
+    }
+
+    /**
+     * @dev Initiate a flash loan.
+     * @param receiver The receiver of the tokens in the loan, and the receiver of the callback.
+     * @param token The loan currency.
+     * @param amount The amount of tokens lent.
+     * @param data Arbitrary data structure, intended to contain user-defined parameters.
+     */
+    function flashLoan(
+        IERC3156FlashBorrower receiver,
+        address token,
+        uint256 amount,
+        bytes calldata data
+    ) external override returns (bool) {
+        require(token == address(token1) || token == address(token2), "Unsupported token");
+        uint256 fee = _flashFee(amount);
+        uint256 balanceBefore = (token == address(token1) ? token1Balance : token2Balance);
+        
+        // Transfer tokens to receiver
+        IERC20(token).safeTransfer(address(receiver), amount);
+        require(
+            receiver.onFlashLoan(msg.sender, token, amount, fee, data) ==
+            keccak256("ERC3156FlashBorrower.onFlashLoan"),
+            "IERC3156: Callback failed"
+        );
+
+        // Check that the loan has been paid back
+        uint256 balanceAfter = IERC20(token).balanceOf(address(this));
+        require(balanceAfter == balanceBefore + fee, "Flash loan hasn't been paid back properly");
+        token == address(token1) ? token1Balance += fee : token2Balance += fee;
+
+        return true;
+    }
+
+    /**
+     * @dev The fee to be charged for a given loan.
+     * @param token The loan currency.
+     * @param amount The amount of tokens lent.
+     * @return The amount of `token` to be charged for the loan, on top of the returned principal.
+     */
+    function flashFee(address token, uint256 amount) external view override returns (uint256) {
+        require(token == address(token1) || token == address(token2), "Unsupported token");
+        return _flashFee(amount);
+    }
+
+    /**
+     * @dev The fee to be charged for a given loan. Internal function with no checks.
+     * @param amount The amount of tokens lent.
+     * @return The amount of `token` to be charged for the loan, on top of the returned principal.
+     */
+    function _flashFee(
+        uint256 amount
+    ) internal view returns (uint256) {
+        return amount * feeRate / 10000;
+    }
+
+    /**
+     * @dev The amount of currency available to be lended.
+     * @param token The loan currency.
+     * @return The amount of `token` that can be borrowed.
+     */
+    function maxFlashLoan(address token) external view override returns (uint256) {
+        if (token == address(token1)) {
+            return token1Balance;
+        } else if (token == address(token2)) {
+            return token2Balance;
+        } else {
+            return 0;
+        }
     }
 }
