@@ -1,7 +1,7 @@
 /**
+ * TODO: Implement fixed point math for more precise calculations
  * TODO: Implement last recorded balance of token1 and token2 to calculate the TWAP and prevent oracle manipulation 
  * TODO: Implement flash swaps with EIP 3156
- * TODO: Implement fixed point math for more precise calculations
  */
 //SPDX-License-Identifier: Unlicense
 pragma solidity 0.8.21;
@@ -28,7 +28,7 @@ contract AMM {
 
     uint256 public totalShares;
     mapping(address => uint256) public shares;
-    uint256 constant PRECISION = 10 ** 18;
+    uint256 public constant PRECISION = 10 ** 18;
 
     /**
      * @dev Event emitted when a token swap happens
@@ -87,7 +87,32 @@ contract AMM {
     }
 
     /**
-     * @dev Calculates how much of token2 is needed to deposit for a specific amount of token1
+     * @dev This function allows users to remove liquidity from the pool
+     * @param _share Amount of liquidity shares to remove
+     * @return token1Amount Amount of the first token received
+     * @return token2Amount Amount of the second token received
+     */
+    function removeLiquidity(uint256 _share)
+        external
+        returns(uint256 token1Amount, uint256 token2Amount)
+    {
+        require(_share <= shares[msg.sender], "Must be less than or equal to your shares");
+
+        (token1Amount, token2Amount) = calculateWithdrawAmount(_share);
+
+        shares[msg.sender] -= _share;
+        totalShares -= _share;
+
+        token1Balance -= token1Amount;
+        token2Balance -= token2Amount;
+        K = token1Balance * token2Balance;
+
+        token1.safeTransfer(msg.sender, token1Amount);
+        token2.safeTransfer(msg.sender, token2Amount);
+    }
+
+    /**
+     * @dev Calculates how much of token2 an LP needs to deposit for a specific amount of token1
      * @param _token1Amount Amount of the first token for the calculation
      */
     function calculateToken2Deposit(uint256 _token1Amount)
@@ -99,7 +124,7 @@ contract AMM {
     }
 
     /**
-     * @dev Calculates how much of token1 is needed to deposit for a specific amount of token2
+     * @dev Calculates how much of token1 an LP needs to deposit for a specific amount of token2
      * @param _token2Amount Amount of the second token for the calculation
      */
     function calculateToken1Deposit(uint256 _token2Amount)
@@ -213,7 +238,7 @@ contract AMM {
     }
 
     /**
-     * @dev This function calculates the amounts of token1 and token2 that will be withdrawn for a specific share
+     * @dev This function calculates the amounts of token1 and token2 that an LP will withdraw for a specific share
      * @param _share Amount of liquidity shares to calculate the withdrawal for
      */
     function calculateWithdrawAmount(uint256 _share)
@@ -224,28 +249,5 @@ contract AMM {
         require(_share < totalShares, "Must be less than total shares");
         token1Amount = (_share * token1Balance) / totalShares;
         token2Amount = (_share * token2Balance) / totalShares;
-    }
-
-    /**
-     * @dev This function allows users to remove liquidity from the pool
-     * @param _share Amount of liquidity shares to remove
-     */
-    function removeLiquidity(uint256 _share)
-        external
-        returns(uint256 token1Amount, uint256 token2Amount)
-    {
-        require(_share <= shares[msg.sender], "Must be less than or equal to your shares");
-
-        (token1Amount, token2Amount) = calculateWithdrawAmount(_share);
-
-        shares[msg.sender] -= _share;
-        totalShares -= _share;
-
-        token1Balance -= token1Amount;
-        token2Balance -= token2Amount;
-        K = token1Balance * token2Balance;
-
-        token1.safeTransfer(msg.sender, token1Amount);
-        token2.safeTransfer(msg.sender, token2Amount);
     }
 }
