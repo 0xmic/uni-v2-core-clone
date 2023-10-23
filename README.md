@@ -10,5 +10,5 @@ Changes include the following:
 - [X] Use Openzeppelin’s or Solmate’s safeTransfer instead of building it from scratch like Unisawp does
 - [X] Instead of implementing a flash swap the way Uniswap does, use EIP 3156.
 - [ ] Use an existing fixed point library, but not the Uniswap one.
-  - Implement last recorded balance of token1 and token2 to calculate the TWAP and prevent oracle manipulation. Cumulative price
+  - Implement last recorded balance of token1 and token2 to calculate the TWAP and prevent oracle manipulation.
  

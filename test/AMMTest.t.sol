@@ -7,6 +7,7 @@ import {Token} from "../src/Token.sol";
 import {AMM} from "../src/AMM.sol";
 import {FlashBorrower} from "../src/FlashBorrower.sol";
 import {DeployAMM} from "../script/DeployAMM.s.sol";
+import {UD60x18, ud} from "@prb-math/UD60x18.sol";
 
 contract BondingCurveTokenTest is StdCheats, Test {
     Token public token1;
@@ -54,21 +55,21 @@ contract BondingCurveTokenTest is StdCheats, Test {
         token2.approve(address(amm), 100_000 ether);
 
         // Deployer adds liquidity
-        amm.addLiquidity(100_000 ether, 100_000 ether);
+        amm.addLiquidity(ud(100_000 ether), ud(100_000 ether));
         vm.stopPrank();
 
         // Check AMM receives tokens
         assertEq(token1.balanceOf(address(amm)), 100_000 ether);
         assertEq(token2.balanceOf(address(amm)), 100_000 ether);
 
-        assertEq(amm.token1Balance(), 100_000 ether);
-        assertEq(amm.token2Balance(), 100_000 ether);
+        assertEq(amm.token1Balance().intoUint256(), 100_000 ether);
+        assertEq(amm.token2Balance().intoUint256(), 100_000 ether);
 
         // Check deployer has 100 shares
-        assertEq(amm.shares(deployerAddress), 100 * PRECISION);
+        assertEq(amm.shares(deployerAddress).intoUint256(), 100 * PRECISION);
 
         // Check pool has 100 total shares
-        assertEq(amm.totalShares(), 100 * PRECISION);
+        assertEq(amm.totalShares().intoUint256(), 100 * PRECISION);
 
         // ----------------------------------------------------
         // LP adds more liquidity
@@ -81,24 +82,23 @@ contract BondingCurveTokenTest is StdCheats, Test {
         token2.approve(address(amm), amount);
 
         // Calculate token2Deposit amount
-        uint256 token2Deposit = amm.calculateToken2Deposit(amount);
+        uint256 token2Deposit = amm.calculateToken2Deposit(ud(amount)).intoUint256();
 
         // LP adds liquidity
-        amm.addLiquidity(amount, token2Deposit);
+        amm.addLiquidity(ud(amount), ud(token2Deposit));
         vm.stopPrank();
 
         // LP should have 50 shares
-        assertEq(amm.shares(liquidityProvider), 50 * PRECISION);
+        assertEq(amm.shares(liquidityProvider).intoUint256(), 50 * PRECISION);
 
         // Deployer should still have 100 shares
-        assertEq(amm.shares(deployerAddress), 100 * PRECISION);
+        assertEq(amm.shares(deployerAddress).intoUint256(), 100 * PRECISION);
 
         // Pool should have 150 total shares
-        assertEq(amm.totalShares(), 150 * PRECISION);
+        assertEq(amm.totalShares().intoUint256(), 150 * PRECISION);
 
         // Check price before swapping
-        console2.log("CT Price: ", (amm.token2Balance() * PRECISION) / amm.token1Balance(), "\n");
-
+        console2.log("CT Price: ", (amm.token2Balance().intoUint256() * PRECISION) / amm.token1Balance().intoUint256(), "\n");
     }
 
     function test_Swap() public {
@@ -118,11 +118,11 @@ contract BondingCurveTokenTest is StdCheats, Test {
         assertEq(token2.balanceOf(investor1), 0 ether);
 
         // Estimate amount of tokens investor1 will receive after swapping 1 token1: includes slippage
-        uint256 estimate = amm.calculateToken1Swap(1 ether);
+        uint256 estimate = amm.calculateToken1Swap(ud(1 ether)).intoUint256();
         console2.log("Token2 amount investor1 will receive after swap: ", estimate);
 
         // Investor1 swaps 1 token1
-        amm.swapToken1(1 ether);
+        amm.swapToken1(ud(1 ether));
 
         // Check investor1 balance after swap
         uint256 balance = token2.balanceOf(investor1);
@@ -130,11 +130,11 @@ contract BondingCurveTokenTest is StdCheats, Test {
         assertEq(balance, estimate);
 
         // Check AMM balances are in sync
-        assertEq(token1.balanceOf(address(amm)), amm.token1Balance());
-        assertEq(token2.balanceOf(address(amm)), amm.token2Balance());
+        assertEq(token1.balanceOf(address(amm)), amm.token1Balance().intoUint256());
+        assertEq(token2.balanceOf(address(amm)), amm.token2Balance().intoUint256());
 
         // Check price after swapping (taking into account decimal precision)
-        console2.log("CT Price: ", (amm.token2Balance() * PRECISION) / amm.token1Balance(), "\n");
+        console2.log("CT Price: ", (amm.token2Balance().intoUint256() * PRECISION) / amm.token1Balance().intoUint256(), "\n");
 
         // ----------------------------------------------------
         // Investor 1 swaps again
@@ -145,22 +145,22 @@ contract BondingCurveTokenTest is StdCheats, Test {
         console2.log("Investor1 Token2 balance before swap: ", token2.balanceOf(investor1));
 
         // Estimate amount of Token2 investor1 will receive after swapping 1 token1: includes slippage
-        estimate = amm.calculateToken1Swap(1 ether);
+        estimate = amm.calculateToken1Swap(ud(1 ether)).intoUint256();
         console2.log("Token2 amount investor1 will receive after swap: ", estimate);
 
         // Investor1 swaps 1 token
-        amm.swapToken1(1 ether);
+        amm.swapToken1(ud(1 ether));
 
         // Check investor1 balance after swap
         balance = token2.balanceOf(investor1);
         console2.log("Investor1 Token2 balance after swap: ", balance);
 
         // Check AMM token balances are in sync
-        assertEq(token1.balanceOf(address(amm)), amm.token1Balance());
-        assertEq(token2.balanceOf(address(amm)), amm.token2Balance());
+        assertEq(token1.balanceOf(address(amm)), amm.token1Balance().intoUint256());
+        assertEq(token2.balanceOf(address(amm)), amm.token2Balance().intoUint256());
 
         // Check price after swapping
-        console2.log("CT Price: ", (amm.token2Balance() * PRECISION) / amm.token1Balance(), "\n");
+        console2.log("CT Price: ", (amm.token2Balance().intoUint256() * PRECISION) / amm.token1Balance().intoUint256(), "\n");
 
         // ----------------------------------------------------
         // Investor1 swaps a large amount
@@ -171,11 +171,11 @@ contract BondingCurveTokenTest is StdCheats, Test {
         console2.log("Investor1 Token2 balance before swap: ", token2.balanceOf(investor1));
 
         // Estimate amount of Token2 investor1 will receive after swapping 100 token1: includes slippage
-        estimate = amm.calculateToken1Swap(100 ether);
+        estimate = amm.calculateToken1Swap(ud(100 ether)).intoUint256();
         console2.log("Token2 amount investor1 will receive after swap: ", estimate);
 
         // Investor1 swaps 100 token1
-        amm.swapToken1(100 ether);
+        amm.swapToken1(ud(100 ether));
         vm.stopPrank();
 
         // Check investor1 balance after swap
@@ -183,11 +183,11 @@ contract BondingCurveTokenTest is StdCheats, Test {
         console2.log("Investor1 Token2 balance after swap: ", balance);
 
         // Check AMM token balances are in sync
-        assertEq(token1.balanceOf(address(amm)), amm.token1Balance());
-        assertEq(token2.balanceOf(address(amm)), amm.token2Balance());
+        assertEq(token1.balanceOf(address(amm)), amm.token1Balance().intoUint256());
+        assertEq(token2.balanceOf(address(amm)), amm.token2Balance().intoUint256());
 
         // Check price after swapping
-        console2.log("CT Price: ", (amm.token2Balance() * PRECISION) / amm.token1Balance(), "\n");
+        console2.log("CT Price: ", (amm.token2Balance().intoUint256() * PRECISION) / amm.token1Balance().intoUint256(), "\n");
 
         // ----------------------------------------------------
         // Investor2 swaps
@@ -202,22 +202,22 @@ contract BondingCurveTokenTest is StdCheats, Test {
         console2.log("Investor2 Token1 balance before swap: ", token1.balanceOf(investor2));
 
         // Estimate amount of tokens investor2 will receive after swapping 1 token2: includes slippage
-        estimate = amm.calculateToken2Swap(1 ether);
+        estimate = amm.calculateToken2Swap(ud(1 ether)).intoUint256();
         console2.log("Token1 amount investor2 will receive after swap: ", estimate);
 
         // Investor2 swaps 1 token2
-        amm.swapToken2(1 ether);
+        amm.swapToken2(ud(1 ether));
         vm.stopPrank();
 
         // Check investor2 balance after swap
         balance = token1.balanceOf(investor2);
 
         // Check AMM token balances are in sync
-        assertEq(token1.balanceOf(address(amm)), amm.token1Balance());
-        assertEq(token2.balanceOf(address(amm)), amm.token2Balance());
+        assertEq(token1.balanceOf(address(amm)), amm.token1Balance().intoUint256());
+        assertEq(token2.balanceOf(address(amm)), amm.token2Balance().intoUint256());
 
         // Check price after swapping
-        console2.log("CT Price: ", (amm.token2Balance() * PRECISION) / amm.token1Balance(), "\n");
+        console2.log("CT Price: ", (amm.token2Balance().intoUint256() * PRECISION) / amm.token1Balance().intoUint256(), "\n");
     }
 
     function test_RemoveLiquidity() public {
@@ -228,8 +228,8 @@ contract BondingCurveTokenTest is StdCheats, Test {
 
         console2.log("Removing Liquidity");
 
-        console2.log("AMM Token1 Balance: ", amm.token1Balance());
-        console2.log("AMM Token2 Balance: ", amm.token2Balance());
+        console2.log("AMM Token1 Balance: ", amm.token1Balance().intoUint256());
+        console2.log("AMM Token2 Balance: ", amm.token2Balance().intoUint256());
 
         // Check LP balance before removing tokens
         console2.log("LP Token1 Balance before removing tokens: ", token1.balanceOf(liquidityProvider));
@@ -237,20 +237,20 @@ contract BondingCurveTokenTest is StdCheats, Test {
 
         // LP removes tokens from AMM pool
         vm.startPrank(liquidityProvider);
-        amm.removeLiquidity(50 * PRECISION);
+        amm.removeLiquidity(ud(50 * PRECISION));
 
         // Check LP balances after removing tokens
         console2.log("LP Token1 Balance after removing tokens: ", token1.balanceOf(liquidityProvider));
         console2.log("LP Token2 Balance after removing tokens: ", token2.balanceOf(liquidityProvider));
 
         // LP should have 0 shares
-        assertEq(amm.shares(liquidityProvider), 0);
+        assertEq(amm.shares(liquidityProvider).intoUint256(), 0);
 
         // Deployer should still have 100 shares
-        assertEq(amm.shares(deployerAddress), 100 * PRECISION);
+        assertEq(amm.shares(deployerAddress).intoUint256(), 100 * PRECISION);
 
         // AMM Pool should have 100 shares
-        assertEq(amm.totalShares(), 100 * PRECISION);
+        assertEq(amm.totalShares().intoUint256(), 100 * PRECISION);
     }
 
     function test_FlashSwap() public {
