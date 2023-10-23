@@ -29,9 +29,6 @@ contract AMM is IERC3156FlashLender {
 
     UD60x18 public feeRate = ud(50); // 50 basis points = 0.5% fee
 
-    /**
-     * @dev Event emitted when a token swap happens
-     */
     event Swap(
         address user,
         address tokenGive,
@@ -40,6 +37,24 @@ contract AMM is IERC3156FlashLender {
         UD60x18 tokenGetAmount,
         UD60x18 token1Balance,
         UD60x18 token2Balance,
+        uint256 timestamp
+    );
+    event AddLiquidity(
+        address indexed provider,
+        UD60x18 amountToken1,
+        UD60x18 amountToken2,
+        UD60x18 totalToken1Balance,
+        UD60x18 totalToken2Balance,
+        UD60x18 sharesIssued,
+        uint256 timestamp
+    );
+    event RemoveLiquidity(
+        address indexed provider,
+        UD60x18 amountToken1,
+        UD60x18 amountToken2,
+        UD60x18 totalToken1Balance,
+        UD60x18 totalToken2Balance,
+        UD60x18 sharesBurned,
         uint256 timestamp
     );
 
@@ -56,7 +71,6 @@ contract AMM is IERC3156FlashLender {
     /**
      * @dev Calculates how much of token2 an LP needs to deposit for a specific amount of token1
      * @param _token1Amount Amount of the first token for the calculation
-     * TODO: ~
      */
     function calculateToken2Deposit(UD60x18 _token1Amount) external view returns(UD60x18 _token2Amount) {
         _token2Amount = _token1Amount.mul(token2Balance).div(token1Balance);
@@ -65,7 +79,6 @@ contract AMM is IERC3156FlashLender {
     /**
      * @dev Calculates how much of token1 an LP needs to deposit for a specific amount of token2
      * @param _token2Amount Amount of the second token for the calculation
-     * TODO: ~
      */
     function calculateToken1Deposit(UD60x18 _token2Amount) external view returns(UD60x18 _token1Amount) {
         _token1Amount = _token2Amount.mul(token1Balance).div(token2Balance);
@@ -75,7 +88,6 @@ contract AMM is IERC3156FlashLender {
      * @dev Allows users to add liquidity to the pool
      * @param _token1Amount Amount of the first token to add
      * @param _token2Amount Amount of the second token to add
-     * TODO: ~
      */
     function addLiquidity(UD60x18 _token1Amount, UD60x18 _token2Amount) external {
         token1.safeTransferFrom(msg.sender, address(this), _token1Amount.intoUint256());
@@ -102,12 +114,21 @@ contract AMM is IERC3156FlashLender {
         // Update Shares
         totalShares = totalShares.add(share);
         shares[msg.sender] = shares[msg.sender].add(share);
+
+        emit AddLiquidity(
+            msg.sender,
+            _token1Amount,
+            _token2Amount,
+            token1Balance,
+            token2Balance,
+            share,
+            block.timestamp
+        );
     }
 
     /**
      * @dev This function calculates the amounts of token1 and token2 that an LP will withdraw for a specific share
      * @param _share Amount of liquidity shares to calculate the withdrawal for
-     * TODO: ~
      */
     function calculateWithdrawAmount(UD60x18 _share) public view returns (UD60x18 token1Amount, UD60x18 token2Amount) {
         require(_share.lt(totalShares), "Must be less than total shares");
@@ -120,7 +141,6 @@ contract AMM is IERC3156FlashLender {
      * @param _share Amount of liquidity shares to remove
      * @return token1Amount Amount of the first token received
      * @return token2Amount Amount of the second token received
-     * TODO: ~
      */
     function removeLiquidity(UD60x18 _share) external returns(UD60x18 token1Amount, UD60x18 token2Amount) {
         require(_share.lte(shares[msg.sender]), "Must be less than or equal to your shares");
@@ -138,12 +158,21 @@ contract AMM is IERC3156FlashLender {
 
         token1.safeTransfer(msg.sender, token1Amount.intoUint256());
         token2.safeTransfer(msg.sender, token2Amount.intoUint256());
+
+        emit RemoveLiquidity(
+            msg.sender,
+            token1Amount,
+            token2Amount,
+            token1Balance,
+            token2Balance,
+            _share,
+            block.timestamp
+        );
     }
 
     /**
      * @dev Calculates how much of token2 is received when swapping token1
      * @param _token1Amount Amount of the first token to swap
-     * TODO: ~
      */
     function calculateToken1Swap(UD60x18 _token1Amount) public view returns (UD60x18 token2Amount) {
         UD60x18 token1After = token1Balance.add(_token1Amount);
@@ -182,7 +211,6 @@ contract AMM is IERC3156FlashLender {
     /**
      * @dev This function calculates how much of token1 is received when swapping token2
      * @param _token2Amount Amount of the second token to swap
-     * TODO: ~
      */
     function calculateToken2Swap(UD60x18 _token2Amount) public view returns (UD60x18 token1Amount) {
         UD60x18 token2After = token2Balance.add(_token2Amount);
@@ -195,7 +223,6 @@ contract AMM is IERC3156FlashLender {
     /**
      * @dev This function allows users to swap token2 for token1
      * @param _token2Amount Amount of the second token to swap
-     * TODO: ~
      */
     function swapToken2(UD60x18 _token2Amount) external returns (UD60x18 token1Amount) {
         // Calculate Token 1 Amount
