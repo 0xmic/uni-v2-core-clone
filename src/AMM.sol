@@ -20,14 +20,23 @@ contract AMM is IERC3156FlashLender {
     IERC20 public token1;
     IERC20 public token2;
 
+    // price
     UD60x18 public token1Balance;
     UD60x18 public token2Balance;
     UD60x18 public K;
 
+    // shares
     mapping(address => UD60x18) public shares;
     UD60x18 public totalShares;
 
+    // flash loan
     UD60x18 public feeRate = ud(50); // 50 basis points = 0.5% fee
+
+    // TWAP
+    UD60x18 public cumulativePrice1;
+    UD60x18 public cumulativePrice2;
+    uint32 public lastBlockTimestamp;
+
 
     event Swap(
         address user,
@@ -115,6 +124,8 @@ contract AMM is IERC3156FlashLender {
         totalShares = totalShares.add(share);
         shares[msg.sender] = shares[msg.sender].add(share);
 
+        _updateCumulativePrices();
+
         emit AddLiquidity(
             msg.sender,
             _token1Amount,
@@ -159,6 +170,8 @@ contract AMM is IERC3156FlashLender {
         token1.safeTransfer(msg.sender, token1Amount.intoUint256());
         token2.safeTransfer(msg.sender, token2Amount.intoUint256());
 
+        _updateCumulativePrices();
+
         emit RemoveLiquidity(
             msg.sender,
             token1Amount,
@@ -195,6 +208,8 @@ contract AMM is IERC3156FlashLender {
         token1Balance = token1Balance.add(_token1Amount);
         token2Balance = token2Balance.sub(token2Amount);
         token2.safeTransfer(msg.sender, token2Amount.intoUint256());
+
+        _updateCumulativePrices();
 
         emit Swap(
             msg.sender,
@@ -234,6 +249,8 @@ contract AMM is IERC3156FlashLender {
         token1Balance = token1Balance.sub(token1Amount);
         token1.safeTransfer(msg.sender, token1Amount.intoUint256());
 
+        _updateCumulativePrices();
+
         emit Swap(
             msg.sender,
             address(token2),
@@ -244,6 +261,23 @@ contract AMM is IERC3156FlashLender {
             token2Balance,
             block.timestamp
         );
+    }
+
+    function _updateCumulativePrices() internal {
+        uint32 timeElapsed = uint32(block.timestamp) - lastBlockTimestamp;
+
+        if (timeElapsed > 0) {
+            // Calculate prices based on updated reserves
+            UD60x18 price1 = token2Balance.div(token1Balance);
+            UD60x18 price2 = token1Balance.div(token2Balance);
+
+            // Update cumulative prices
+            cumulativePrice1 = cumulativePrice1.add(price1.mul(ud(timeElapsed)));
+            cumulativePrice2 = cumulativePrice2.add(price2.mul(ud(timeElapsed)));
+
+            // Update the last block timestamp
+            lastBlockTimestamp = uint32(block.timestamp);
+        }
     }
 
     /**
@@ -260,6 +294,7 @@ contract AMM is IERC3156FlashLender {
         bytes calldata data
     ) external override returns (bool success) {
         require(token == address(token1) || token == address(token2), "Unsupported token");
+
         UD60x18 fee = ud(_flashFee(amount));
         UD60x18 balanceBefore = (token == address(token1) ? token1Balance : token2Balance);
         
@@ -271,10 +306,15 @@ contract AMM is IERC3156FlashLender {
             "IERC3156: Callback failed"
         );
 
-        // Check that the loan has been paid back
+        // Check that the loan has been paid back plus fees
         UD60x18 balanceAfter = ud(IERC20(token).balanceOf(address(this)));
         require(balanceAfter.eq(balanceBefore.add(fee)), "Flash loan hasn't been paid back properly");
-        token == address(token1) ? token1Balance = token1Balance.add(fee) : token2Balance = token2Balance.add(fee);
+
+        // Update state variables
+        token == address(token1) ? 
+            token1Balance = token1Balance.add(fee) : 
+            token2Balance = token2Balance.add(fee);
+        K = token1Balance.mul(token2Balance);
 
         success = true;
     }
