@@ -9,7 +9,7 @@ import {FlashBorrower} from "../src/FlashBorrower.sol";
 import {DeployAMM} from "../script/DeployAMM.s.sol";
 import {UD60x18, ud} from "@prb-math/UD60x18.sol";
 
-contract BondingCurveTokenTest is StdCheats, Test {
+contract AMMTest is StdCheats, Test {
     Token public token1;
     Token public token2;
     AMM public amm;

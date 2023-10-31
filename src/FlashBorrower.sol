@@ -27,7 +27,7 @@ contract FlashBorrower is IERC3156FlashBorrower {
         // Ensure that the flash loan is coming from the expected lender
         require(msg.sender == address(lender), "Untrusted lender");
 
-        // TODO: Additional here, e.g. arbitrage, collateral swap, etc.
+        // User can add additional logic here, e.g. arbitrage, collateral swap, etc.
 
         // Repay the flash loan
         uint256 repaymentAmount = amount + fee;
