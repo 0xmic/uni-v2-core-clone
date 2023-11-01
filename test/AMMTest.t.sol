@@ -4,7 +4,7 @@ pragma solidity 0.8.21;
 import {Test, console2} from "forge-std/Test.sol";
 import {StdCheats, console2} from "forge-std/StdCheats.sol";
 import {Token} from "../src/Token.sol";
-import {AMM} from "../src/AMM.sol";
+import {AMMPair} from "../src/AMMPair.sol";
 import {FlashBorrower} from "../src/FlashBorrower.sol";
 import {DeployAMM} from "../script/DeployAMM.s.sol";
 import {UD60x18, ud} from "@prb-math/UD60x18.sol";
@@ -12,7 +12,7 @@ import {UD60x18, ud} from "@prb-math/UD60x18.sol";
 contract AMMTest is StdCheats, Test {
     Token public token1;
     Token public token2;
-    AMM public amm;
+    AMMPair public amm;
     DeployAMM public deployer;
 
     address public deployerAddress;

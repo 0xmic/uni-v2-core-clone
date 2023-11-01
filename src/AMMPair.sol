@@ -11,7 +11,7 @@ import {UD60x18, ud} from "@prb-math/UD60x18.sol";
  * @title AMM (Automated Market Maker)
  * @dev This contract implements an AMM with two Token assets for liquidity providing and swapping.
  */ 
-contract AMM is IERC3156FlashLender {
+contract AMMPair is IERC3156FlashLender {
     using SafeERC20 for IERC20;
 
     /**

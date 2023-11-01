@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.21;
 
-import {AMM} from "./AMM.sol";
+import {AMMPair} from "./AMMPair.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -45,7 +45,7 @@ contract AMMFactory {
         require(token1 != address(0), "AMMFactory: ZERO_ADDRESS");
         require(getPair[token1][token2] == address(0), "AMMFactory: PAIR_EXISTS");
 
-        AMM amm = new AMM(token1, token2);
+        AMMPair amm = new AMMPair(token1, token2);
         ammPair = address(amm);
         
         getPair[token1][token2] = ammPair;
