@@ -263,6 +263,17 @@ contract AMM is IERC3156FlashLender {
         );
     }
 
+    /**
+     * @notice Updates cumulative price data for TWAP (Time-Weighted Average Price) calculations
+     * @dev This function is called to update the cumulative prices of token1 and token2.
+     *      It calculates new cumulative prices based on the current balances of token1 and token2
+     *      and the time elapsed since the last update.
+     *      The cumulative price is used for computing a TWAP, which is a more stable price metric over time.
+     *      This function should be called during state-changing functions that modify token balances
+     *      (like swaps, adding or removing liquidity) to ensure the TWAP is updated correctly.
+     *      It uses the formula: cumulativePrice += (currentPrice * timeElapsed)
+     * @dev The function is internal and should not be called externally.
+     */
     function _updateCumulativePrices() internal {
         uint32 timeElapsed = uint32(block.timestamp) - lastBlockTimestamp;
 

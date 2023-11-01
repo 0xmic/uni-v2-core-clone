@@ -4,6 +4,7 @@ pragma solidity 0.8.21;
 import {Script} from "forge-std/Script.sol";
 import {Token} from "../src/Token.sol";
 import {AMM} from "../src/AMM.sol";
+import {AMMFactory} from "../src/AMMFactory.sol";
 
 contract DeployAMM is Script {
     uint256 public constant INITIAL_SUPPLY = 1_000_000 ether; // 1 million tokens with 18 decimal places
@@ -32,7 +33,8 @@ contract DeployAMM is Script {
         vm.startBroadcast(deployerKey);
         token1 = new Token(INITIAL_SUPPLY, TOKEN1_NAME, TOKEN1_SYMBOL);
         token2 = new Token(INITIAL_SUPPLY, TOKEN2_NAME, TOKEN2_SYMBOL);
-        amm = new AMM(address(token1), address(token2));
+        AMMFactory factory = new AMMFactory();
+        amm = AMM(factory.createPair(address(token1), address(token2)));
         vm.stopBroadcast();
 
         return (token1, token2, amm);
